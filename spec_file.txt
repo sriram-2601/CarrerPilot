@@ -1,0 +1,287 @@
+PROJECT SPECIFICATION FOR A CODING AGENT
+Project Name: CareerPilot AI - Agentic Internship CRM
+Source of Truth Contract Document: spec_file.txt
+
+================================================================================
+1. PROJECT OVERVIEW & PHILOSOPHY
+================================================================================
+CareerPilot AI is an agentic internship workflow orchestration platform for students.
+It is NOT a chatbot project. It is a workflow automation console where a student signs up,
+uploads a PDF resume, and an 8-stage pipeline of specialized agents processes that resume
+through a deterministic sequence of stages.
+
+The system persists per-user pipeline state, advances the workflow graph stage by stage as
+real work completes, and lets the student tailor and apply with an updated resume - all backed
+by this specification file as the single source of truth.
+
+Key Architectural Guarantees:
+1. Offline-First & Resilient:
+   - Local Ollama runtime (chat model llama3.1:8b, embeddings nomic-embed-text).
+   - Every AI call has a deterministic fallback (in server/src/utils/text.js).
+   - Storage works in dual mode behind a single repository interface:
+     * MongoDB when MONGODB_URI is provided.
+     * Auto-seeded in-memory store when MONGODB_URI is absent.
+   - Entire application works with 0 external network and no LLM installed.
+2. Single Source of Truth for Resumes:
+   - Uploading a new PDF resume REPLACES profile data (not merged).
+   - Archives previous run to ResumeHistory log.
+   - Clears matches and resumeVersions to reset downstream pipeline stages.
+   - Guarded by 422 if PDF is unreadable or extracted text < 30 chars (never wipes on failure).
+3. Zero-Dependency PDF Generation:
+   - Uses server/src/utils/pdf.js (custom pure JavaScript A4 Helvetica generator with xref table).
+   - No external pdfkit, puppeteer, or html-pdf dependencies.
+4. Strict Technology Stack Boundaries:
+   - JavaScript (ESM) ONLY. NO TypeScript.
+   - Folders are strictly /client and /server. NO frontend/, backend/, NestJS, or Prisma.
+
+================================================================================
+2. TECH STACK SPECIFICATION
+================================================================================
+Frontend:
+- Runtime & Bundler: React 18, Vite 8 (ESM)
+- Routing: React Router 7 (createBrowserRouter)
+- Styling: Tailwind CSS 3 (custom tokens: ink #18212f, paper #f7f8f3, moss #1f7a5c, coral #d55c45, gold #c28a21, shadow-soft)
+- Server State: TanStack React Query 5 (query keys: ["profile"], ["internships"], ["matches"], ["resume-versions"], ["applications"], ["notifications"], ["analytics"])
+- Client State: Zustand 5 (name: "careerpilot-session", persisted to localStorage)
+- Forms: React Hook Form 7
+- HTTP Client: axios (with auth bearer request interceptor & 401 logout response interceptor)
+- Icons: lucide-react
+
+Backend:
+- Runtime: Node.js (ESM, "type": "module")
+- Web Framework: Express 4
+- Database: MongoDB via Mongoose 8 OR built-in In-Memory Repository
+- File Upload: multer 2 (memory storage, 5MB limit, application/pdf only)
+- PDF Parsing: pdf-parse 1
+- Passwords & Auth: bcryptjs (hash), jsonwebtoken (JWT Bearer tokens)
+- AI Calls: axios to local Ollama (timeout: 8000ms) with deterministic fallbacks
+- Scheduler: node-cron (periodic background sync & notifications)
+- External Live Feed: Node built-in fetch with AbortController (timeout: 5000ms) to Remotive API
+- PDF Export: Custom zero-dependency A4 PDF engine (server/src/utils/pdf.js)
+
+================================================================================
+3. EIGHT COOPERATING AGENTS & PIPELINE ORCHESTRATION
+================================================================================
+Pipeline Flow:
+Resume Upload -> Profile Agent -> Discovery Agent -> Matching Agent -> Skill-Gap Agent -> Preparation Agent -> Tracker Agent -> Feedback Agent -> Notification Agent -> Workflow Graph Update
+
+1. Profile Agent (server/src/agents/profileAgent.js):
+   - parseResume(buffer): extracts text via pdf-parse.
+   - Summarizes via Ollama generateLocalText or fallback summarizeText.
+   - Extracts skills via keyword scan against 25-item knownSkills list.
+   - Scans projects, experience, and education blocks.
+   - Generates embedding via generateEmbedding or fallback vector.
+
+2. Discovery Agent (server/src/agents/discoveryAgent.js):
+   - discoverInternships(profile):
+     * If profile has signal, queries Remotive live feed (behind 5s AbortController).
+     * Filters for early-career titles, derives skills from description.
+     * Combines with curated catalog, dedupes by company+title.
+     * Computes relevanceScore = (skill overlap * 2) + (preferred-role hit * 2) + (location hit).
+     * Returns top 10 internships.
+     * If no profile signal, falls back to 5 seed internships.
+
+3. Matching Agent (server/src/agents/matchingAgent.js):
+   - scoreInternship(profile, internship):
+     * matchedSkills = profile.skills intersection internship.skillsRequired.
+     * missingSkills = internship.skillsRequired \ profile.skills.
+     * skillScore = (matchedSkills.length / internship.skillsRequired.length) * 80.
+     * roleBoost: +10 if internship.title matches preferredRoles.
+     * locationBoost: +10 if internship.location matches preferences.location or is Remote.
+     * finalScore = Math.min(100, Math.round(skillScore + roleBoost + locationBoost)).
+     * reason: Ollama generated or deterministic template based on matched/missing breakdown.
+
+4. Skill-Gap Agent (server/src/agents/skillGapAgent.js):
+   - buildSkillGapReport(match):
+     * Analyzes match.missingSkills.
+     * Builds prioritized array of { skill, priority (HIGH|MEDIUM|LOW), suggestedAction, miniProject }.
+
+5. Preparation Agent (server/src/agents/preparationAgent.js):
+   - generateResumeVariant(profile, internship):
+     * Re-tailors ONLY the Skills section of candidate's actual resume text.
+     * Re-orders: (1) required matching skills first, (2) real matched candidate skills missing from requirements, (3) rest.
+     * STRICT RULE: Never fabricates missing skills, never removes real skills.
+     * Returns { content, changeSummary: [...], matchedSkills, missingSkills, approved: false }.
+
+6. Tracker Agent (server/src/controllers/applicationController.js):
+   - Manages Kanban statuses: SAVED -> PREPARING -> APPLIED -> INTERVIEW -> OFFER -> REJECTED.
+   - Enforces upward-only progression based on STATUS_RANK.
+   - Duplicate create increments/progresses status, never throws 409.
+   - Supports application delete with confirmation.
+
+7. Feedback Agent (server/src/agents/feedbackAgent.js):
+   - buildAnalytics(applications, matches):
+     * totalApplications, interviewRate, offerRate, matchScoreEffectiveness.
+     * topPerformingSkills: skills most correlated with INTERVIEW/OFFER.
+     * recommendationNote: actionable advice for user.
+
+8. Notification Agent (server/src/controllers/notificationController.js):
+   - Dispatches in-app notifications on resume upload, application milestone changes, and background reminders.
+
+================================================================================
+4. DATABASE MODELS & SCHEMA
+================================================================================
+All models contain timestamps: true.
+
+- User:
+  * name: String
+  * email: String (unique, lowercase)
+  * password: String (bcrypt hash)
+
+- Profile:
+  * userId: ObjectId / String (unique)
+  * skills: [String]
+  * projects: [{ title, description, technologies }]
+  * experience: [{ company, role, duration, description }]
+  * education: [{ institution, degree, year }]
+  * preferences: { roles: [String], location: String, workMode: String, stipendRange: String }
+  * resumeText: String
+  * embedding: [Number]
+
+- Internship:
+  * title: String
+  * company: String
+  * description: String
+  * skillsRequired: [String]
+  * location: String
+  * applyLink: String
+  * source: String (seed | catalog | Remotive (live))
+  * deadline: Date
+  * postedDate: Date
+  * embedding: [Number]
+  * Unique compound index on { company, title, applyLink }
+
+- Match:
+  * userId: ObjectId / String
+  * internshipId: ObjectId / String
+  * score: Number (0-100)
+  * matchedSkills: [String]
+  * missingSkills: [String]
+  * reason: String
+  * Unique compound index on { userId, internshipId }
+
+- ResumeVersion:
+  * userId: ObjectId / String
+  * internshipId: ObjectId / String
+  * content: String
+  * changeSummary: [String]
+  * matchedSkills: [String]
+  * missingSkills: [String]
+  * approved: Boolean (default false)
+
+- ResumeHistory:
+  * userId: ObjectId / String
+  * label: String
+  * skills: [String]
+  * summary: String
+  * topMatches: [{ title, company, score }]
+  * matchCount: Number
+  * highMatchCount: Number
+  * resumeVersionCount: Number
+  * supersededAt: Date
+
+- Application:
+  * userId: ObjectId / String
+  * internshipId: ObjectId / String
+  * status: String (enum: SAVED | PREPARING | APPLIED | INTERVIEW | OFFER | REJECTED, default: SAVED)
+  * appliedAt: Date
+  * nextActionDate: Date
+  * notes: String
+  * Unique compound index on { userId, internshipId }
+
+- Notification:
+  * userId: ObjectId / String
+  * title: String
+  * message: String
+  * read: Boolean (default: false)
+
+================================================================================
+5. REST API ENDPOINTS
+================================================================================
+All routes except /api/auth/* require Authorization: Bearer <JWT>.
+Errors return standard JSON: { message: "Error description" }.
+
+Auth:
+- POST /api/auth/register -> { user, profile, token } (409 on duplicate email)
+- POST /api/auth/login -> { user, token } (401 on invalid credentials)
+- GET /api/auth/me -> { user, profile }
+
+Health:
+- GET /api/health -> { status: "ok", mode: "mongo"|"memory", ollamaAvailable: bool }
+
+Profile & Resume:
+- GET /api/profile -> returns current profile
+- GET /api/profile/history -> returns archived resume runs (createdAt desc)
+- POST /api/profile/upload-resume -> multipart/form-data (field: resume, PDF <= 5MB)
+  * Validates PDF & length >= 30 chars (422 if invalid; touches nothing)
+  * Archives previous resume to ResumeHistory
+  * Replaces profile fields
+  * Clears user's matches & resumeVersions
+  * Best-effort re-syncs discovery
+- PATCH /api/profile/preferences -> updates preferences (roles, location, workMode, stipendRange)
+
+Internships & Matching:
+- GET /api/internships -> returns all internships enriched with user's match
+- POST /api/internships/sync -> triggers resume-driven discovery upsert; returns { count, internships }
+- POST /api/matches/generate -> scores matches for current profile against all internships
+- GET /api/matches -> returns matches enriched with internship details, sorted by score desc
+
+Skill Gaps & Application Materials:
+- GET /api/skill-gaps/:internshipId -> returns prioritized study plan
+- GET /api/application-materials -> returns user's resume versions
+- POST /api/application-materials/generate -> generates tailored variant; sets application status to PREPARING
+- POST /api/application-materials/approve -> sets approved: true (owner-checked)
+- GET /api/application-materials/:id/pdf -> streams tailored resume as application/pdf (owner-checked)
+
+Applications & Kanban:
+- GET /api/applications -> returns user's applications enriched with internship
+- POST /api/applications -> creates or progresses application status upward
+- PATCH /api/applications/:id -> updates status/notes/nextActionDate (owner-checked; raises notification on milestone)
+- DELETE /api/applications/:id -> deletes application (owner-checked)
+
+Notifications & Analytics:
+- GET /api/notifications -> returns user notifications (createdAt desc)
+- PATCH /api/notifications/:id/read -> marks notification as read (owner-checked)
+- GET /api/analytics -> returns outcome analytics, top skills, recommendations
+
+================================================================================
+6. FRONTEND PAGES & USER EXPERIENCE
+================================================================================
+Routes (createBrowserRouter):
+- /login & /register: Authentication views.
+- / (Dashboard):
+  * Metric cards: Total Internships, High Matches (>=75%), Active Applications, Unread Alerts.
+  * Workflow Automation Graph: 8 nodes (Profile, Discovery, Matching, Skill-Gap, Preparation, Tracker, Feedback, Notification) with active/total badge.
+  * Ranked Opportunities preview with Sync and Match CTA buttons.
+  * Extracted Profile Skills snapshot.
+  * Application Tracker preview.
+- /profile:
+  * ResumeUploadCard with drag & drop, skill badges, and "Pipeline reset on upload" notice.
+  * Preferences form (roles, location, work mode, stipend).
+  * Projects, Experience, and Education detail blocks.
+  * Resume History log: table/cards of superseded resumes with dates, skills, and top match counts.
+- /internships:
+  * Search bar & source filter (All, Remotive live, Catalog, Seed).
+  * Cards with match score pills, required skills, deadline, and "Apply" button (marks APPLIED and opens external link).
+- /internships/:id:
+  * Internship header, company details, full description, required skills.
+  * Match Score breakdown & reason.
+  * Skill Gaps analysis panel with priority & mini-project recommendations.
+  * Resume Tailoring panel: Generate Tailored Resume, change summary diff, View/Download PDF, Approve, and "Apply with updated resume".
+- /tracker:
+  * 6 Kanban columns: SAVED, PREPARING, APPLIED, INTERVIEW, OFFER, REJECTED.
+  * Cards showing title, company, match badge, status selector (upward only), next action date, notes textarea + Save, Delete button.
+- /analytics:
+  * Funnel metrics (Applications -> Interviews -> Offers).
+  * Top-performing skills breakdown.
+  * Strategic recommendation notes.
+
+================================================================================
+7. DEVELOPMENT PHASES
+================================================================================
+- Phase 1: Storage layer (dual repository + in-memory store), Mongoose models including ResumeHistory, JWT Auth, Profile & Resume upload through Profile Agent, replace-on-upload, pipeline reset, and history archive.
+- Phase 2: Internship discovery (resume-driven catalog ranking + Remotive live feed + fallback), matching, and skill-gap analysis behind shared pipeline service.
+- Phase 3: Resume preparation (Skills-only tailoring), zero-dependency PDF generator, and application-materials routes.
+- Phase 4: Applications & Kanban tracker (with delete and upward-only status progression), milestone notifications.
+- Phase 5: Analytics, Dashboard, Workflow Automation Graph, and background jobs.
+- Phase 6: Demo seed data, complete end-to-end acceptance verification (including offline mode test).

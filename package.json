@@ -1,0 +1,13 @@
+{
+  "name": "careerpilot-ai",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:client": "npm run build --prefix client",
+    "build": "npm run build --prefix client",
+    "start": "node server/src/index.js",
+    "dev": "node --watch server/src/index.js",
+    "test": "npm test --prefix server"
+  }
+}
