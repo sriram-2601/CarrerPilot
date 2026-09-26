@@ -7,8 +7,8 @@ export function extractSkills(text) {
 
   for (const skill of knownSkills) {
     const escaped = skill.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-    // For skills like C++, ensure we match properly without broken word boundaries
     let pattern;
+
     if (skill === 'C++') {
       pattern = /(?:^|[\s,;:(/])c\+\+(?:$|[\s,;:)/])/i;
     } else if (skill === 'Node.js') {
@@ -17,6 +17,20 @@ export function extractSkills(text) {
       pattern = /(?:^|[\s,;:(/])next(?:\.js)?(?:$|[\s,;:)/])/i;
     } else if (skill === 'REST APIs') {
       pattern = /\brest(?:ful)?\s*(?:apis?|services?)?\b/i;
+    } else if (skill === 'OWASP Top 10') {
+      pattern = /\bowasp(?:\s*top\s*10)?\b/i;
+    } else if (skill === 'VAPT') {
+      pattern = /\bvapt\b|\bvulnerability\s+assessment\b/i;
+    } else if (skill === 'SQL Injection') {
+      pattern = /\bsql\s*injection\b|\bsqli\b/i;
+    } else if (skill === 'XSS') {
+      pattern = /\bxss\b|\bcross[- ]site\s+scripting\b/i;
+    } else if (skill === 'CSRF') {
+      pattern = /\bcsrf\b|\bcross[- ]site\s+request\s+forgery\b/i;
+    } else if (skill === 'API Security') {
+      pattern = /\bapi\s+security\b/i;
+    } else if (skill === 'Penetration Testing') {
+      pattern = /\bpen(?:etration)?\s+testing\b|\bpentest(?:ing)?\b/i;
     } else {
       pattern = new RegExp(`\\b${escaped}\\b`, 'i');
     }
@@ -40,7 +54,6 @@ export function summarizeText(text) {
     return 'Motivated candidate with a technical foundation seeking internship opportunities.';
   }
 
-  // Pick candidate name / title or first couple of content sentences
   const leadSentences = lines.slice(0, 3).join('. ');
   return leadSentences.length > 250 ? leadSentences.slice(0, 247) + '...' : leadSentences;
 }
@@ -57,7 +70,6 @@ export function generateEmbeddingFallback(text) {
     embedding[index] += (charCode % 10) / 10;
   }
 
-  // Normalize vector to unit length
   const magnitude = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0)) || 1;
   return embedding.map(val => Number((val / magnitude).toFixed(6)));
 }

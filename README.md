@@ -272,6 +272,46 @@ All routes mounted under `/api` and require `Authorization: Bearer <JWT>` except
 
 ---
 
+## 🛡️ Web Application VAPT & Defensive Hardening Matrix (OWASP & PortSwigger Standard)
+
+CareerPilot AI enforces defensive engineering principles across the 31 core Web Application Vulnerability Assessment and Penetration Testing (VAPT) categories:
+
+| # | VAPT Category | Threat Model & Vector | CareerPilot AI Defensive Architecture & Implementation |
+|---|---|---|---|
+| **01** | **SQL Injection (SQLi)** | Malicious SQL inputs corrupting database queries | **Zero raw SQL concatenation**. All queries use Mongoose parameterized schemas or strict in-memory repository object lookups with type coercion. |
+| **02** | **Cross-Site Scripting (XSS)** | Injected JavaScript executing in victim browsers | **React JSX contextual escaping**. React automatically escapes values rendered in JSX. Zero usage of `dangerouslySetInnerHTML`. |
+| **03** | **Cross-Site Request Forgery (CSRF)** | Unauthorized commands transmitted from trusted user | **Stateless Bearer Authorization**. Authentication tokens are transmitted in explicit `Authorization: Bearer <JWT>` HTTP headers via Axios interceptors, not ambient browser cookies. |
+| **04** | **Clickjacking** | UI redressing framing the application maliciously | **Defensive Framing Headers**. Server enforces `X-Frame-Options: DENY` and `Content-Security-Policy: frame-ancestors 'none'`. |
+| **05** | **DOM-Based Vulnerabilities** | Client-side scripts reading attacker-controlled DOM data | **Virtual DOM Data Binding**. React state controls DOM mutations without unsafe sinks like `eval()`, `document.write()`, or `innerHTML`. |
+| **06** | **Cross-Origin Resource Sharing (CORS)** | Overly permissive origin headers leaking API data | **Explicit Origin Whitelisting**. `cors` middleware validates origins against configured `CLIENT_URL` and safe development localhost/LAN regex patterns. |
+| **07** | **XML External Entity (XXE)** | XML parsers processing untrusted external entities | **Zero XML Footprint**. API exclusively accepts JSON payloads and raw PDF binaries. Zero XML parsers are mounted on the backend. |
+| **08** | **Server-Side Request Forgery (SSRF)** | Server coerced into querying internal services | **Hardcoded Target Whitelisting**. Live Remotive calls are sent to hardcoded URLs behind a 5000ms `AbortController` timeout. No user-supplied URLs are fetched by the server. |
+| **09** | **HTTP Request Smuggling** | Discrepancies between frontend proxies & backend servers | **Standardized HTTP Parser**. Clean Node.js HTTP parser with strict `Content-Length` enforcement on unified single-port Express server. |
+| **10** | **OS Command Injection** | Shell execution triggered via malicious user input | **Zero System Shell Calls**. Application executes zero child processes with user input; PDF generation, parsing, and cron tasks run in pure JavaScript runtimes. |
+| **11** | **Server-Side Template Injection (SSTI)**| Server template engines executing template expressions | **Pure API Architecture**. No server-side template engines (no Pug, EJS, or Jinja). Responses are purely serialized JSON data objects. |
+| **12** | **Path Traversal (Directory Traversal)**| File manipulation via `../` sequences | **Memory Storage & UUIDs**. Resume uploads are stored in memory (`multer.memoryStorage()`); streamed PDFs are referenced by database `_id` with sanitized static filenames. |
+| **13** | **Access Control / IDOR / BOLA** | Tampering with object IDs to access other users' data | **Strict Object Ownership Verification**. Every sensitive route verifies `normalizeId(doc.userId) === normalizeId(req.user.id)` before modification or deletion. |
+| **14** | **Authentication Failures** | Credential brute-forcing, weak password storage | **Bcrypt Salted Hashing**. Passwords hashed with `bcryptjs` (10 salt rounds); password length minimum enforced; generic error messages prevent user enumeration. |
+| **15** | **WebSocket Vulnerabilities** | Hijacking or unauthenticated socket messaging | **Deterministic REST + React Query**. Utilizes stateless polling and cache invalidation over secure HTTP rather than unauthenticated socket listeners. |
+| **16** | **Web Cache Poisoning** | Caching unkeyed HTTP headers to poison responses | **Strict Cache Directives**. Dynamic API routes marked uncacheable; production single-port server isolates static asset hashes from API endpoints. |
+| **17** | **Insecure Deserialization** | Deserializing malicious byte streams into objects | **Pure JSON Serialization**. Zero native binary serialization (no Python `pickle`, `node-serialize`, or Java serial objects). |
+| **18** | **Information Disclosure** | Stack traces & server environment leaking in responses | **Sanitized Error Middleware**. Global `errorHandler` returns `{ message }` payloads; raw stack traces and secrets are suppressed from HTTP response bodies. |
+| **19** | **Basic Login Vulnerabilities** | User enumeration, credential stuffing | **Uniform Rejection Responses**. Failed logins return generic HTTP 401 (`"Invalid email or password"`) for both incorrect emails and passwords. |
+| **20** | **HTTP Host Header Attacks** | Poisoning password resets via manipulated Host header | **Absolute Routing**. System routes are determined by environment configuration (`CLIENT_URL`) rather than unvetted dynamic Host request headers. |
+| **21** | **OAuth Authentication Issues** | Insecure token handling or state manipulation | **Isolated Bearer Storage**. Client manages JWT sessions in localStorage via isolated Zustand store; auto-logout interceptor triggers on 401 errors. |
+| **22** | **File Upload Vulnerabilities** | Executable uploads, web shells, decompression bombs | **Triple-Layer Upload Guard**: 1) Multer memory storage (5MB cap), 2) `application/pdf` MIME verification, 3) `pdf-parse` byte verification (HTTP 422 if invalid). |
+| **23** | **JSON Web Tokens (JWT) Flaws** | Algorithm confusion (none), weak signing secrets | **Enforced HMAC-SHA256**. Signed and verified with `JWT_SECRET`; tokens contain expiration (`expiresIn: 7d`) and require valid signature. |
+| **24** | **Essential VAPT Skills & Curriculum** | Lack of security training for software engineers | **Built-in VAPT Internship Track**. Curated catalog features Application Security internships; skills taxonomy and Skill-Gap Agent provide structured study plans for VAPT. |
+| **25** | **Prototype Pollution** | Overwriting `Object.prototype` via `__proto__` | **Safe Object Cloning**. Deep cloning via native `structuredClone()`; zero unsafe recursive deep merges on unvetted request bodies. |
+| **26** | **GraphQL Vulnerabilities** | Nested query DoS, introspection leakage | **Bounded REST API Surface**. Explicit REST endpoints with capped input limits prevent complex nested query exhaustion attacks. |
+| **27** | **Race Conditions (TOCTOU)** | Simultaneous requests causing duplicate resources | **Compound Unique Constraints**. Enforced unique indexes on `{ userId, internshipId }` and `{ company, title, applyLink }` prevent duplicate race states. |
+| **28** | **NoSQL Injection** | Injection of MongoDB query operators (`$ne`, `$gt`) | **Type Coercion & Schema Validation**. Mongoose strict schemas validate types; memory store sanitizes input parameters and rejects raw operator injection. |
+| **29** | **API Security & Testing** | Undocumented or untested API endpoints | **Automated Integration Testing**. Built-in `npm test` suite validates auth, uploads, match generation, materials, and analytics. |
+| **30** | **Web LLM Attacks (Prompt Injection)** | Adversarial text in resumes hijacking LLM behavior | **Structured Prompt Boundaries & Deterministic Fallbacks**. Input text is length-capped and isolated; deterministic algorithms guarantee system integrity if LLM outputs are compromised. |
+| **31** | **Web Cache Deception** | Tricking caches into saving private dynamic content | **Strict Path Disambiguation**. API routes (`/api/*`) are strictly separated from static assets (`/assets/*`), preventing dynamic endpoint caching. |
+
+---
+
 ## 🎨 Design System Tokens
 
 Built with custom Tailwind CSS design tokens:

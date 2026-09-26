@@ -53,7 +53,16 @@ app.use(
   })
 );
 
-// Body parser capped at 1MB
+// Standard defensive security headers (VAPT compliance: Clickjacking, MIME sniffing, frame protection)
+app.use((req, res, next) => {
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
+  next();
+});
+
+// Body parser capped at 1MB (VAPT: DoS protection against payload overflow)
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 

@@ -285,3 +285,71 @@ Routes (createBrowserRouter):
 - Phase 4: Applications & Kanban tracker (with delete and upward-only status progression), milestone notifications.
 - Phase 5: Analytics, Dashboard, Workflow Automation Graph, and background jobs.
 - Phase 6: Demo seed data, complete end-to-end acceptance verification (including offline mode test).
+
+================================================================================
+8. WEB APPLICATION VAPT & DEFENSIVE HARDENING SPECIFICATION (31-POINT MATRIX)
+================================================================================
+CareerPilot AI implements defensive engineering principles across the 31 core VAPT categories:
+
+1. SQL Injection:
+   - Zero raw concatenated queries. All database access mediated via Mongoose parameterized schemas or strict in-memory repository object lookups.
+2. Cross-Site Scripting (XSS):
+   - React virtual DOM enforces contextual character escaping for all JSX string expressions. Zero usage of dangerouslySetInnerHTML.
+3. Cross-Site Request Forgery (CSRF):
+   - Authentication relies on explicit Bearer Authorization headers in Axios; no ambient browser cookies are trusted for state-changing operations.
+4. Clickjacking:
+   - Protected against iframe framing; single-port production server sets defensive X-Frame-Options: DENY and Content-Security-Policy frame-ancestors: 'none'.
+5. DOM-Based Vulnerabilities:
+   - React unidirectional data binding prevents dynamic eval() or document.write() injections.
+6. Cross-Origin Resource Sharing (CORS):
+   - Strict CORS configuration in app.js explicitly whitelisting configured CLIENT_URL and authorized local development host regexes.
+7. XML External Entity (XXE) Injection:
+   - Application accepts only JSON and binary PDF payloads. Zero XML parsers are mounted on the backend.
+8. Server-Side Request Forgery (SSRF):
+   - External fetch calls restricted to hardcoded, validated Remotive API endpoints behind an AbortController 5000ms timeout. No user-supplied URLs are fetched on the server.
+9. HTTP Request Smuggling:
+   - Standardized single-port Express HTTP parser with compliant Content-Length handling and keep-alive configuration.
+10. OS Command Injection:
+    - Zero child_process, exec(), or shell invocation with user-controlled input. All background tasks and PDF generations run inside pure JavaScript routines.
+11. Server-Side Template Injection (SSTI):
+    - Zero server-side template engines (no Pug, EJS, or Jinja). Responses are purely structured JSON payloads.
+12. Path Traversal:
+    - PDF uploads stored in memory (multer memoryStorage). File downloads use database ObjectIds and strictly generated filenames; no filesystem paths are accepted from clients.
+13. Access Control Vulnerabilities (IDOR / BOLA):
+    - Strict object ownership verification on all resource routes (e.g. applications, resume versions, notifications, preferences): normalizeId(item.userId) === normalizeId(req.user.id).
+14. Authentication:
+    - Password hashing using bcryptjs with 10 salt rounds. Stateless signed JWTs with expiration.
+15. WebSockets:
+    - Non-persistent state-synchronized HTTP architecture using TanStack Query cache invalidation instead of unauthenticated socket listeners.
+16. Web Cache Poisoning:
+    - Cache-Control headers applied to sensitive endpoints; no unkeyed headers impact cached responses.
+17. Insecure Deserialization:
+    - Zero native object serialization (no pickle, node-serialize, or Java serialization). Pure JSON parsing only.
+18. Information Disclosure:
+    - Unified error middleware returns sanitized { message } payloads; stack traces suppressed in production.
+19. Basic Login Vulnerabilities:
+    - Generic 401 error message ("Invalid email or password") prevents username enumeration. Password length minimum enforced.
+20. HTTP Host Header Attacks:
+    - Absolute routing and environment-governed CORS origins; server does not trust host headers for password reset or redirection links.
+21. OAuth Authentication:
+    - Bearer JWT session isolation; safe state management on the client via Zustand.
+22. File Upload Vulnerabilities:
+    - Multer memory storage capped at 5MB, strict MIME-type filter (application/pdf only), and content validation requiring valid PDF byte structure via pdf-parse.
+23. JSON Web Tokens (JWT):
+    - HMAC-SHA256 signature verification with secret key validation; bearer token parsing and automatic expiration.
+24. Essential VAPT Skills:
+    - Built-in cybersecurity & VAPT internship track in catalog, known skills taxonomy, and customized study roadmaps.
+25. Prototype Pollution:
+    - Deep cloning implemented via native structuredClone() and Object.assign() with prototype pollution shields.
+26. GraphQL API Vulnerabilities:
+    - Surface area minimized by exposing RESTful endpoints with explicit parameter schemas.
+27. Race Conditions:
+    - Unique compound database indexes on { userId, internshipId } and { company, title, applyLink } prevent duplicate race states.
+28. NoSQL Injection:
+    - Strict Mongoose schema typing and in-memory operator type checks prevent raw $where or query object injection.
+29. API Testing:
+    - Automated integration test suite (npm test) covering auth, uploads, match generation, materials, and analytics.
+30. Web LLM Attacks (Prompt Injection):
+    - Profile text truncated and wrapped in structured system boundaries before LLM ingestion; deterministic fallbacks guarantee consistent operation if LLM generates adversarial output.
+31. Web Cache Deception:
+    - Strict separation of API routes (/api/*) and static asset distributions.

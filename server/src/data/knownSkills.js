@@ -1,4 +1,5 @@
 export const knownSkills = [
+  // Full Stack & Frontend
   'JavaScript',
   'TypeScript',
   'Python',
@@ -11,17 +12,30 @@ export const knownSkills = [
   'HTML',
   'CSS',
   'Tailwind CSS',
+  'Next.js',
+  'Redux',
+  // Systems & Cloud
   'Git',
   'Docker',
   'AWS',
-  'REST APIs',
-  'GraphQL',
-  'Next.js',
-  'Redux',
+  'Linux',
   'C++',
   'Java',
-  'Linux',
+  'CI/CD',
+  'REST APIs',
+  'GraphQL',
   'Data Structures',
   'Algorithms',
-  'CI/CD'
+  // Cybersecurity & VAPT Track
+  'VAPT',
+  'Web Security',
+  'OWASP Top 10',
+  'Burp Suite',
+  'Penetration Testing',
+  'SQL Injection',
+  'XSS',
+  'CSRF',
+  'API Security',
+  'Network Security',
+  'Cryptography'
 ];

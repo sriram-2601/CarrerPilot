@@ -3,6 +3,36 @@ import { seedInternships } from './seedInternships.js';
 export const curatedCatalog = [
   ...seedInternships,
   {
+    title: 'Application Security & VAPT Intern',
+    company: 'Cloudflare',
+    description: 'Perform web application vulnerability assessment and penetration testing (VAPT) across edge worker APIs. Test for OWASP Top 10 vulnerabilities including SQL Injection, XSS, CSRF, and SSRF.',
+    skillsRequired: ['VAPT', 'Web Security', 'OWASP Top 10', 'Burp Suite', 'REST APIs', 'Linux'],
+    location: 'Remote',
+    applyLink: 'https://cloudflare.com/careers/appsec-intern',
+    source: 'catalog',
+    deadline: new Date(Date.now() + 35 * 24 * 60 * 60 * 1000)
+  },
+  {
+    title: 'Product Security & Penetration Testing Intern',
+    company: 'HackerOne',
+    description: 'Work with the security operations team to triage bug bounty vulnerability disclosures, reproduce complex DOM-based XSS, Race Conditions, and API authorization bypasses.',
+    skillsRequired: ['Penetration Testing', 'Web Security', 'API Security', 'Burp Suite', 'JavaScript', 'Python'],
+    location: 'Remote',
+    applyLink: 'https://hackerone.com/careers/security-intern',
+    source: 'catalog',
+    deadline: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000)
+  },
+  {
+    title: 'Cloud Security & DevSecOps Intern',
+    company: 'CrowdStrike',
+    description: 'Audit cloud infrastructure, automate container vulnerability scanning in CI/CD pipelines, and evaluate identity access control policies against cloud threat vectors.',
+    skillsRequired: ['AWS', 'Docker', 'Linux', 'CI/CD', 'Network Security', 'Python'],
+    location: 'Remote',
+    applyLink: 'https://crowdstrike.com/careers/cloudsec-intern',
+    source: 'catalog',
+    deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+  },
+  {
     title: 'Frontend React Developer Intern',
     company: 'Figma',
     description: 'Help engineer collaborative design canvas features, design tokens, and web interfaces using modern React, TypeScript, and HTML/CSS.',
